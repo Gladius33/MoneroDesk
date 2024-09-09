@@ -1,0 +1,11 @@
+/.env
+/db.sqlite3
+/devwallet
+/devwallet.address.txt
+/devwallet.keys
+/env
+/monero-wallet-cli.log
+/monero-wallet-rpc.log
+/testwallet
+/testwallet.address.txt
+/testwallet.keys

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Profile</h2>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ profile_form.as_p }}
+    <button type="submit">Update Profile</button>
+</form>
+
+<h3>Change Email</h3>
+<form method="post">
+    {% csrf_token %}
+    {{ email_form.as_p }}
+    <button type="submit">Change Email</button>
+</form>
+
+<h3>Change Password</h3>
+<form method="post">
+    {% csrf_token %}
+    {{ password_form.as_p }}
+    <button type="submit">Change Password</button>
+</form>
+
+<h3>Your Wallets</h3>
+<p><strong>XMR Wallet Address:</strong> {{ xmr_wallet_address }}</p>
+<p><strong>XMR Balance:</strong> {{ xmr_balance }} XMR</p>
+<img src="https://chart.googleapis.com/chart?cht=qr&chs=250x250&chl={{ xmr_wallet_address }}" alt="XMR Wallet QR Code">
+{% endblock %}

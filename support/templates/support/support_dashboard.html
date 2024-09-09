@@ -1,0 +1,15 @@
+<h1>Support Dashboard</h1>
+<table>
+    <tr>
+        <th>Transaction ID</th>
+        <th>Status</th>
+        <th>Action</th>
+    </tr>
+    {% for request in support_requests %}
+    <tr>
+        <td>{{ request.transaction.id }}</td>
+        <td>{{ request.status }}</td>
+        <td><a href="{% url 'join_chat' request.id %}">Join Chat</a></td>
+    </tr>
+    {% endfor %}
+</table>

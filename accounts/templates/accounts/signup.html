@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Sign Up</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <label for="referral_code">Referral Code (Optional):</label>
+    <input type="text" name="referral_code" placeholder="Enter referral code">
+    <button type="submit">Sign Up</button>
+</form>
+{% endblock %}

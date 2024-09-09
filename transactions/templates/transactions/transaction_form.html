@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Confirm Transaction</h2>
+
+<!-- Display Ad Details -->
+<p><strong>Ad:</strong> {{ ad.title }}</p>
+<p><strong>Price per XMR:</strong> {{ ad.price }} {{ ad.fiat_currency }}</p>
+<p><strong>Available Amount:</strong> {{ ad.min_amount }} - {{ ad.max_amount }} XMR</p>
+<p><strong>Type of Transaction:</strong> {{ ad.get_type_display }}</p>
+
+<!-- Transaction Form -->
+<form method="post">
+    {% csrf_token %}
+
+    <!-- Choose amount (for both buy and sell) -->
+    <label for="transaction_amount">Enter the amount of XMR you want to {{ "buy" if ad.type == "sell" else "sell" }}:</label>
+    <input type="number" id="transaction_amount" name="transaction_amount" min="{{ ad.min_amount }}" max="{{ ad.max_amount }}" step="0.00000001" required>
+    
+    <!-- Show total price if ad type is sell (buyer-side transaction) -->
+    {% if ad.type == 'sell' %}
+    <p>Total Price: <span id="total_price"></span> {{ ad.fiat_currency }}</p>
+    {% endif %}
+    
+    <!-- Submit buttons based on transaction type -->
+    {% if ad.type == 'sell' %}
+    <button type="submit">Buy Now</button>
+    {% elif ad.type == 'buy' %}
+    <button type="submit">Sell Now</button>
+    {% endif %}
+</form>
+
+<!-- JavaScript to update total price dynamically -->
+{% if ad.type == 'sell' %}
+<script>
+    const pricePerXMR = {{ ad.price }};
+    const fiatCurrency = "{{ ad.fiat_currency }}";
+    const transactionAmountInput = document.getElementById('transaction_amount');
+    const totalPriceSpan = document.getElementById('total_price');
+
+    transactionAmountInput.addEventListener('input', function() {
+        const transactionAmount = parseFloat(transactionAmountInput.value);
+        if (!isNaN(transactionAmount)) {
+            const totalPrice = (transactionAmount * pricePerXMR).toFixed(2);
+            totalPriceSpan.textContent = totalPrice + " " + fiatCurrency;
+        } else {
+            totalPriceSpan.textContent = "";
+        }
+    });
+</script>
+{% endif %}
+
+{% endblock %}

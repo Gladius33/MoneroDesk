@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Transaction Canceled</h2>
+
+<p>The transaction has been successfully canceled. The associated ad is now active again.</p>
+
+<!-- Optionally display transaction details -->
+<p><strong>Transaction ID:</strong> {{ transaction.transaction_id }}</p>
+<p><strong>Amount:</strong> {{ transaction.transaction_amount }} XMR</p>
+<p><strong>Ad:</strong> {{ transaction.ad.title }}</p>
+
+<!-- Back to Transactions link -->
+<a href="{% url 'transaction_list' %}" class="btn btn-primary">Back to Transactions</a>
+{% endblock %}

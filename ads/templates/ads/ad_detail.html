@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>{{ ad.title }}</h2>
+<p>{{ ad.description }}</p>
+<p><strong>Price:</strong> {{ ad.price }} {{ ad.fiat_currency }}</p>
+<p><strong>Cryptocurrency:</strong> {{ ad.crypto_currency }}</p>
+<p><strong>Minimum Amount:</strong> {{ ad.min_amount }} {{ ad.crypto_currency }}</p>
+<p><strong>Maximum Amount:</strong> {{ ad.max_amount }} {{ ad.crypto_currency }}</p>
+<p><strong>Created by:</strong> {{ ad.user.username }}</p>
+<p><strong>Payment Methods:</strong> {{ ad.get_payment_methods_display }}</p>
+
+{% if ad.payment_details %}
+    <p><strong>Payment Details:</strong> {{ ad.payment_details }}</p>
+{% endif %}
+
+{% if ad.location %}
+    <p><strong>Location:</strong> {{ ad.location }}</p>
+{% endif %}
+
+<!-- Transaction Form -->
+<form method="post">
+    {% csrf_token %}
+    <label for="amount">Amount ({{ ad.min_amount }} - {{ ad.max_amount }} {{ ad.crypto_currency }}):</label>
+    <input type="number" step="0.01" name="amount" id="amount" required min="{{ ad.min_amount }}" max="{{ ad.max_amount }}"><br>
+
+    <!-- Dynamic button for transaction type -->
+    {% if ad.type == 'sell' %}
+        <button type="submit">Buy Now</button>
+    {% elif ad.type == 'buy' %}
+        <button type="submit">Sell Now</button>
+    {% endif %}
+</form>
+
+<!-- Option to delete the ad if the user is the creator -->
+{% if ad.user == request.user %}
+    <form action="{% url 'ad_delete' ad.id %}" method="post">
+        {% csrf_token %}
+        <button type="submit">Delete Ad</button>
+    </form>
+{% endif %}
+{% endblock %}

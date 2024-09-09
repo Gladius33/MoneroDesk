@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Your Transactions</h2>
+
+<!-- Check if the user has any transactions -->
+{% if transactions %}
+    <ul>
+        {% for transaction in transactions %}
+        <li>
+            <!-- Display transaction link and details -->
+            <a href="{% url 'transaction_detail' transaction.pk %}">{{ transaction.ad.title }}</a>
+            <!-- Show whether the user is the buyer or the seller -->
+            with {% if transaction.buyer == request.user %}You (Buyer){% else %}Another User (Seller){% endif %}
+            <!-- Optionally show transaction status or amount -->
+            <p><strong>Status:</strong> {{ transaction.status }}</p>
+        </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <!-- Show message if no transactions are available -->
+    <p>You have no transactions at this time.</p>
+{% endif %}
+
+{% endblock %}

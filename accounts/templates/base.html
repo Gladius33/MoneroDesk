@@ -1,0 +1,55 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketplace</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+    <header>
+        <h1>Welcome to the Marketplace</h1>
+        <nav>
+            <ul>
+                <li><a href="{% url 'ad_list' %}">Ads</a></li>
+                {% if user.is_authenticated %}
+                <li><a href="{% url 'user_dashboard' %}">Dashboard</a></li>
+                <li><form id="logout-form" action="{% url 'logout' %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit">Logout</button>
+                </form></li>
+                {% else %}
+                <li><a href="{% url 'login' %}">Login</a></li>
+                <li><a href="{% url 'signup' %}">Sign Up</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </header>
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+    <footer>
+        <p>&copy; 2024 Marketplace. All rights reserved.</p>
+    </footer>
+
+    {% if user.is_authenticated %}
+    <div id="notification-widget" style="position: fixed; bottom: 10px; right: 10px; background: #f0f0f0; padding: 10px; border-radius: 5px; display: none;">
+        <p id="notification-message">You have a new notification!</p>
+    </div>
+    <script>
+        var notificationSocket = new WebSocket('ws://' + window.location.host + '/ws/notifications/' + '{{ user.username }}' + '/');
+        notificationSocket.onmessage = function(event) {
+            var data = JSON.parse(event.data);
+            document.getElementById('notification-message').innerText = data.message;
+            document.getElementById('notification-widget').style.display = 'block';
+            setTimeout(function() {
+                document.getElementById('notification-widget').style.display = 'none';
+            }, 5000);
+        };
+    </script>
+    {% endif %}
+    </body>
+    
+</html>

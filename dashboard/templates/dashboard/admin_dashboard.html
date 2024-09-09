@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Admin Dashboard</h2>
+
+<h3>Manage Admin/Staff Permissions</h3>
+<form method="post" action="{% url 'manage_support_group' %}">
+    {% csrf_token %}
+    <ul>
+        {% for user in users %}
+        <li>
+            {{ user.username }} - {{ user.email }} 
+            <input type="checkbox" name="support_group" value="{{ user.id }}" 
+                   {% if user.groups.filter(name="Support").exists %} checked {% endif %}> 
+            Add to Support Group
+        </li>
+        {% endfor %}
+    </ul>
+    <button type="submit">Update Support Permissions</button>
+</form>
+
+<h3>Transaction & Withdrawal Fees</h3>
+<form method="post" action="{% url 'admin_settings' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Save Fees Settings</button>
+</form>
+
+<h3>All Ads</h3>
+<ul>
+    {% for ad in ads %}
+    <li>{{ ad.title }} - {{ ad.price }} {{ ad.currency }} - Posted by {{ ad.seller.username }}</li>
+    {% endfor %}
+</ul>
+
+<h3>All Transactions</h3>
+<ul>
+    {% for transaction in transactions %}
+    <li>Transaction {{ transaction.id }} - {{ transaction.amount }} {{ transaction.ad.currency }} between {{ transaction.buyer.username }} and {{ transaction.seller.username }}</li>
+    {% endfor %}
+</ul>
+{% endblock %}
+

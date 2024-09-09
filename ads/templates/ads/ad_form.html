@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Create New Ad</h2>
+<form method="post">
+    {% csrf_token %}
+    
+    <!-- Form fields with proper labeling -->
+    <div class="form-group">
+        <label for="title">Ad Title</label>
+        {{ form.title }}
+    </div>
+    
+    <div class="form-group">
+        <label for="description">Description (optional but recommended: details about the payment method and contact information)</label>
+        {{ form.description }}
+    </div>
+    
+    <div class="form-group">
+        <label for="type">Type of Ad</label>
+        {{ form.type }}
+    </div>
+    
+    <div class="form-group">
+        <label for="crypto_currency">Cryptocurrency</label>
+        {{ form.crypto_currency }}
+    </div>
+    
+    <!-- Fixed Price Field -->
+    <div class="form-group" id="fixed_price_field">
+        <label for="price">Fixed Price per Unit (in selected Fiat Currency)</label>
+        {{ form.price }}
+    </div>
+
+    <!-- Dynamic Price Section -->
+    <div class="form-group">
+        <input type="checkbox" id="dynamic_price" name="dynamic_price">
+        <label for="dynamic_price">Sell at Market Price / Buy at Market Price</label>
+    </div>
+    
+    <!-- Dynamic Price Percentage Field -->
+    <div class="form-group" id="dynamic_price_value_field" style="display:none;">
+        <label for="dynamic_price_value">% Adjustment (Max +/- 15%)</label>
+        <input type="number" step="0.01" name="dynamic_price_value" id="dynamic_price_value" value="0">
+    </div>
+    
+    <div class="form-group">
+        <label for="fiat_currency">Fiat Currency</label>
+        {{ form.fiat_currency }}
+    </div>
+    
+    <div class="form-group">
+        <label for="min_amount">Minimum Transaction Amount</label>
+        {{ form.min_amount }}
+    </div>
+    
+    <div class="form-group">
+        <label for="max_amount">Maximum Transaction Amount</label>
+        {{ form.max_amount }}
+    </div>
+    
+    <div class="form-group">
+        <label for="payment_methods">Payment Methods</label>
+        {{ form.payment_methods }}
+    </div>
+    
+    <!-- Conditional display for payment details if "GOODS" or "OTHER" is selected -->
+    <div class="form-group" id="payment_details" style="display:none;">
+        <label for="payment_details">Additional Payment Details (required for GOODS or OTHER)</label>
+        {{ form.payment_details }}
+    </div>
+    
+    <div class="form-group">
+        <label for="location">Location (optional)</label>
+        {{ form.location }}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Create Ad</button>
+</form>
+
+<script>
+    // Toggle between fixed price and dynamic price
+    document.addEventListener('DOMContentLoaded', function () {
+        const dynamicPriceCheckbox = document.getElementById('dynamic_price');
+        const fixedPriceField = document.getElementById('fixed_price_field');
+        const dynamicPriceValueField = document.getElementById('dynamic_price_value_field');
+        const paymentMethodsField = document.querySelector('[name="payment_methods"]');
+        const paymentDetailsField = document.getElementById('payment_details');
+        
+        function togglePriceFields() {
+            if (dynamicPriceCheckbox.checked) {
+                fixedPriceField.style.display = 'none';
+                dynamicPriceValueField.style.display = 'block';
+            } else {
+                fixedPriceField.style.display = 'block';
+                dynamicPriceValueField.style.display = 'none';
+            }
+        }
+        
+        function togglePaymentDetails() {
+            if (['GOODS', 'OTHER'].includes(paymentMethodsField.value)) {
+                paymentDetailsField.style.display = 'block';
+            } else {
+                paymentDetailsField.style.display = 'none';
+            }
+        }
+
+        dynamicPriceCheckbox.addEventListener('change', togglePriceFields);
+        paymentMethodsField.addEventListener('change', togglePaymentDetails);
+
+        togglePriceFields();  // Initial check
+        togglePaymentDetails();  // Initial check
+    });
+</script>
+
+{% endblock %}
