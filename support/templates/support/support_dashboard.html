@@ -1,0 +1,25 @@
+<h1>Support Dashboard</h1>
+<table>
+    <tr>
+        <th>Transaction ID</th>
+        <th>Status</th>
+        <th>Action</th>
+    </tr>
+    {% for request in support_requests %}
+    <tr>
+        <td>{{ request.transaction.id }}</td>
+        <td>{{ request.status }}</td>
+        <td>
+            <a href="{% url 'join_chat' request.id %}">Join Chat</a>
+            <form action="{% url 'cancel_transaction' request.id %}" method="POST" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Cancel Transaction</button>
+            </form>
+            <form action="{% url 'validate_transaction' request.id %}" method="POST" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">Validate Transaction</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>

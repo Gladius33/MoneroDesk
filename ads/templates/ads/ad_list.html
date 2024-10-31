@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Search Ads</h2>
+<form method="get" action="">
+    <label for="type">Type:</label>
+    <select name="type" id="type">
+        <option value="">All</option>
+        <option value="buy" {% if request.GET.type == 'buy' %}selected{% endif %}>Buy</option>
+        <option value="sell" {% if request.GET.type == 'sell' %}selected{% endif %}>Sell</option>
+    </select>
+
+    <label for="crypto_currency">Cryptocurrency:</label>
+    <select name="crypto_currency" id="crypto_currency">
+        <option value="">All</option>
+        <option value="XMR" {% if request.GET.crypto_currency == 'XMR' %}selected{% endif %}>Monero</option>
+    </select>
+
+    <label for="fiat_currency">Fiat Currency:</label>
+    <select name="fiat_currency" id="fiat_currency">
+        <option value="">All</option>
+        <option value="EUR" {% if request.GET.fiat_currency == 'EUR' %}selected{% endif %}>Euro (EUR)</option>
+        <option value="USD" {% if request.GET.fiat_currency == 'USD' %}selected{% endif %}>US Dollar (USD)</option>
+        <option value="CHF" {% if request.GET.fiat_currency == 'CHF' %}selected{% endif %}>Swiss Franc (CHF)</option>
+        <option value="RUB" {% if request.GET.fiat_currency == 'RUB' %}selected{% endif %}>Russian Ruble (RUB)</option>
+        <option value="CAD" {% if request.GET.fiat_currency == 'CAD' %}selected{% endif %}>Canadian Dollar (CAD)</option>
+        <option value="CNY" {% if request.GET.fiat_currency == 'CNY' %}selected{% endif %}>Chinese Yuan (CNY)</option>
+    </select>
+
+    <label for="payment_method">Payment Method:</label>
+    <select name="payment_method" id="payment_method">
+        <option value="">All</option>
+        <option value="SEPA" {% if request.GET.payment_method == 'SEPA' %}selected{% endif %}>SEPA</option>
+        <option value="Instant SEPA" {% if request.GET.payment_method == 'Instant SEPA' %}selected{% endif %}>Instant SEPA</option>
+        <option value="Bank Transfer" {% if request.GET.payment_method == 'Bank Transfer' %}selected{% endif %}>Bank Transfer</option>
+        <option value="Debit Card" {% if request.GET.payment_method == 'Debit Card' %}selected{% endif %}>Debit Card</option>
+        <option value="Visa/MasterCard" {% if request.GET.payment_method == 'Visa/MasterCard' %}selected{% endif %}>Visa/MasterCard</option>
+        <option value="MIR" {% if request.GET.payment_method == 'MIR' %}selected{% endif %}>MIR</option>
+        <option value="PayPal" {% if request.GET.payment_method == 'PayPal' %}selected{% endif %}>PayPal</option>
+        <option value="Revolut" {% if request.GET.payment_method == 'Revolut' %}selected{% endif %}>Revolut</option>
+        <option value="Alipay" {% if request.GET.payment_method == 'Alipay' %}selected{% endif %}>Alipay</option>
+        <option value="Lydia" {% if request.GET.payment_method == 'Lydia' %}selected{% endif %}>Lydia</option>
+        <option value="WeChat" {% if request.GET.payment_method == 'WeChat' %}selected{% endif %}>WeChat</option>
+        <option value="Gift Card" {% if request.GET.payment_method == 'Gift Card' %}selected{% endif %}>Gift Card</option>
+        <option value="Cash by Mail" {% if request.GET.payment_method == 'Cash by Mail' %}selected{% endif %}>Cash by Mail</option>
+        <option value="Cash in Hand" {% if request.GET.payment_method == 'Cash in Hand' %}selected{% endif %}>Cash in Hand</option>
+        <option value="BTC" {% if request.GET.payment_method == 'BTC' %}selected{% endif %}>Bitcoin (BTC)</option>
+        <option value="Cryptocurrency" {% if request.GET.payment_method == 'Cryptocurrency' %}selected{% endif %}>Other Cryptocurrency</option>
+        <option value="Goods" {% if request.GET.payment_method == 'Goods' %}selected{% endif %}>Goods</option>
+        <option value="Other" {% if request.GET.payment_method == 'Other' %}selected{% endif %}>Other</option>
+    </select>
+
+    <button type="submit">Search</button>
+</form>
+
+<h2>Ads</h2>
+<ul>
+    {% for ad in ads %}
+    <li>
+        <strong>{{ ad.title }}</strong><br>
+        <span>{{ ad.type }} {{ ad.crypto_currency }} for {{ ad.fiat_currency }} - Created by {{ ad.user.username }}</span><br>
+        <span>Price: {{ ad.price }} {{ ad.fiat_currency }}</span><br>
+        <span>Minimum amount: {{ ad.min_amount }} {{ ad.crypto_currency }}</span><br>
+        <span>Maximum amount: {{ ad.max_amount }} {{ ad.crypto_currency }}</span><br>
+        <span>Payment Method: {{ ad.get_payment_methods_display }}</span><br>
+        <a href="{% url 'ads:ad_detail' ad.id %}">View Details</a>
+    </li>
+    {% empty %}
+    <li>No ads found.</li>
+    {% endfor %}
+</ul>
+{% endblock %}

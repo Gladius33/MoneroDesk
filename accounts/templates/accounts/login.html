@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Login</h2>
+
+<!-- Formulaire de connexion -->
+<form method="post" class="login-form">
+    {% csrf_token %}
+    
+    <fieldset>
+        <legend>Login to Your Account</legend>
+        
+        {{ form.as_p }}
+        
+        {% if form.non_field_errors %}
+            <div class="error">{{ form.non_field_errors }}</div>
+        {% endif %}
+        
+        <button type="submit" class="btn btn-primary">Login</button>
+    </fieldset>
+    
+    <!-- Liens pour l'inscription et la récupération du mot de passe -->
+    <p>
+        <a href="{% url 'accounts:password_reset' %}">Forgot your password?</a> | 
+        <a href="{% url 'accounts:signup' %}">Don't have an account? Sign up here</a>
+    </p>
+</form>
+{% endblock %}

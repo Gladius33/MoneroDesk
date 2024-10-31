@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Transaction {{ transaction.transaction_id }}</h2>
+
+<!-- Display transaction details -->
+<p><strong>Amount in XMR:</strong> {{ xmr_amount }} XMR</p>
+<p><strong>Amount in {{ chosen_fiat }}:</strong> {{ fiat_price }} {{ chosen_fiat }}</p>
+<p><strong>Buyer:</strong> {{ transaction.buyer.username }}</p>
+<p><strong>Seller:</strong> {{ transaction.seller.username }}</p>
+<p><strong>Status:</strong> {{ transaction.status }}</p>
+
+<!-- Display escrow address for 'buy' transactions if necessary -->
+{% if show_escrow_qr %}
+    <p><strong>Escrow Address (Send remaining funds):</strong> {{ escrow_address }}</p>
+    <img src="https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl={{ escrow_address }}" alt="Escrow QR Code">
+{% endif %}
+
+<!-- Display confirmations for 'buy' transactions -->
+{% if confirmations %}
+    <p><strong>Confirmations:</strong> {{ confirmations }}</p>
+{% endif %}
+
+<!-- Chat section -->
+<h3>Chat with {{ transaction.seller.username }} and {{ transaction.buyer.username }}</h3>
+<div id="chat-log">
+    {% for message in chat %}
+        <p>
+            <strong>{{ message.sender.username }}:</strong> {{ message.text }}<br>
+            <small>{{ message.created_at|date:"Y-m-d H:i:s" }} UTC</small>
+        </p>
+        {% if message.file %}
+            <p><a href="{{ message.file.url }}">Download file</a></p>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<!-- Form for sending new message -->
+<form id="chat-form" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <textarea id="chat-message-input" name="text" rows="4" placeholder="Type your message here..."></textarea><br>
+    <input type="file" name="file"><br>
+    <small>Allowed formats: jpg, png, gif, webp, pdf (Max size: 15MB)</small><br>
+    <button type="submit" id="chat-message-submit">Send Message</button>
+</form>
+
+<!-- Action buttons for releasing funds or canceling transaction -->
+{% if request.user == transaction.buyer or request.user == transaction.seller %}
+    {% if payment_button_visible %}
+        <form action="{% url 'release_funds' transaction.id %}" method="POST">
+            {% csrf_token %}
+            <button type="submit">Release Funds</button>
+        </form>
+    {% endif %}
+    {% if not disable_cancel_button %}
+        <form action="{% url 'cancel_transaction' transaction.id %}" method="POST">
+            {% csrf_token %}
+            <button type="submit">Cancel Transaction</button>
+        </form>
+    {% endif %}
+{% endif %}
+
+{% endblock %}
+

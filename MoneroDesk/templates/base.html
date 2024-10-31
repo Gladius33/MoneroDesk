@@ -1,0 +1,72 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Buy and sell Monero (XMR) on a privacy-respecting P2P marketplace (no KYC, NO AML) for fiat/cryptocurrency transactions.">
+    <meta name="keywords" content="cryptocurrency, marketplace, P2P, ads, buy, sell, Monero, XMR, BTC">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="{{ request.build_absolute_uri }}">
+    <link rel="icon" href="{% static 'images/favicon.ico' %}" type="image/x-icon">
+    <meta name="theme-color" content="#333">
+    <title>MoneroDesk</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <a href="{% url 'ads:ad_list' %}">
+                <img src="{% static 'logo.webp' %}" alt="MoneroDesk Logo" class="site-logo">
+            </a>
+        </div>
+        <h1>Welcome to MoneroDesk</h1>
+        <nav aria-label="Main navigation">
+            <ul>
+                <li><a href="{% url 'ads:ad_list' %}">Ads</a></li>
+                {% if user.is_authenticated %}
+                <li><a href="{% url 'dashboard:user_dashboard' %}">Dashboard</a></li>
+                <li>
+                    <form id="logout-form" action="{% url 'accounts:logout' %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit">Logout</button>
+                    </form>
+                </li>
+                {% else %}
+                <li><a href="{% url 'accounts:login' %}">Login</a></li>
+                <li><a href="{% url 'accounts:signup' %}">Sign Up</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </header>
+    
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <footer>
+        <p>&copy; 2024 MoneroDesk. All rights reserved.</p>
+    </footer>
+
+    {% if user.is_authenticated %}
+    <div id="notification-widget" class="notification" aria-live="polite" aria-atomic="true" style="display: none;">
+        <p id="notification-message">You have a new notification!</p>
+    </div>
+    <script>
+        const notificationSocket = new WebSocket('ws://' + window.location.host + '/ws/notifications/' + '{{ user.username }}' + '/');
+        notificationSocket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            const notification = document.getElementById('notification-widget');
+            document.getElementById('notification-message').innerText = data.message;
+            notification.style.display = 'block';
+            notification.classList.add('show');
+            setTimeout(function() {
+                notification.classList.remove('show');
+                notification.style.display = 'none';
+            }, 5000);
+        };
+    </script>
+    {% endif %}
+</body>
+</html>

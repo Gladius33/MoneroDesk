@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Manage Referral Fees</h2>
+
+<!-- Referral Percentage Update Form -->
+<form method="post" class="form-referral-fee">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="referral_percentage">Referral Percentage:</label>
+        <input 
+            type="number" 
+            name="referral_percentage" 
+            id="referral_percentage" 
+            step="0.01" 
+            value="{{ current_referral_percentage }}" 
+            class="form-control"
+        >
+    </div>
+    <button type="submit" class="btn btn-primary">Update</button>
+</form>
+
+{% endblock %}

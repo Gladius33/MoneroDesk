@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Profile</h2>
+
+<!-- Formulaire pour la mise à jour du profil -->
+<form method="post" enctype="multipart/form-data" class="profile-form">
+    {% csrf_token %}
+    
+    <fieldset>
+        <legend>Update Profile Information</legend>
+        
+        {{ profile_form.as_p }}
+        
+        {% if profile_form.non_field_errors %}
+            <div class="error">{{ profile_form.non_field_errors }}</div>
+        {% endif %}
+        
+        <button type="submit" class="btn btn-primary">Update Profile</button>
+    </fieldset>
+</form>
+
+<hr>
+
+<!-- Formulaire pour le changement d'email -->
+<h3>Change Email</h3>
+<form method="post" class="email-form">
+    {% csrf_token %}
+    
+    <fieldset>
+        <legend>Change Your Email</legend>
+        
+        {{ email_form.as_p }}
+        
+        {% if email_form.non_field_errors %}
+            <div class="error">{{ email_form.non_field_errors }}</div>
+        {% endif %}
+        
+        <button type="submit" class="btn btn-primary">Change Email</button>
+    </fieldset>
+</form>
+
+<hr>
+
+<!-- Formulaire pour le changement de mot de passe -->
+<h3>Change Password</h3>
+<form method="post" class="password-form">
+    {% csrf_token %}
+    
+    <fieldset>
+        <legend>Change Your Password</legend>
+        
+        {{ password_form.as_p }}
+        
+        {% if password_form.non_field_errors %}
+            <div class="error">{{ password_form.non_field_errors }}</div>
+        {% endif %}
+        
+        <button type="submit" class="btn btn-primary">Change Password</button>
+    </fieldset>
+</form>
+
+<hr>
+
+<!-- Affichage des informations du portefeuille -->
+<h3>Your Wallets</h3>
+<div class="wallet-info">
+    <p><strong>XMR Wallet Address:</strong> {{ xmr_wallet_address }}</p>
+    <p><strong>XMR Balance:</strong> {{ xmr_balance }} XMR</p>
+    
+    <!-- Génération du QR code pour l'adresse du portefeuille -->
+    <img src="https://chart.googleapis.com/chart?cht=qr&chs=250x250&chl={{ xmr_wallet_address }}" alt="XMR Wallet QR Code" class="wallet-qr-code">
+</div>
+
+{% endblock %}

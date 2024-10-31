@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Manage Fee Exemptions for First 100 Users</h2>
+
+<!-- List of exempted users -->
+<ul>
+    {% for user in exempted_users %}
+    <li>{{ user.user.username }} - Exempt from transaction fees</li>
+    {% endfor %}
+</ul>
+
+<!-- Form to toggle fee exemption status -->
+<form method="post" class="form-fee-exemptions">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="user_id">Select User to Toggle Fee Exemption:</label>
+        <select name="user_id" id="user_id" class="form-control">
+            {% for user in exempted_users %}
+            <option value="{{ user.user.id }}">{{ user.user.username }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-warning">Toggle Fee Exemption</button>
+</form>
+
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Admin Settings</h2>
+
+<form method="post" class="admin-settings-form">
+    {% csrf_token %}
+    <div class="form-group">
+        {{ form.as_p }}
+    </div>
+    <button type="submit" class="btn btn-primary">Save Settings</button>
+</form>
+
+{% endblock %}

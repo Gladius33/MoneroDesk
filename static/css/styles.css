@@ -1,0 +1,101 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #e5e5e5;  /* Light gray background */
+}
+
+/* Style pour le logo du site */
+.logo-container {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.site-logo {
+    width: 150px;  /* Taille optimale pour le logo sur le site */
+    height: auto;
+    margin-right: 20px;
+    vertical-align: middle;
+}
+
+/* Style du favicon */
+favicon {
+    width: 32px;
+    height: 32px;
+    margin-right: 10px;
+}
+
+/* En-tête */
+header {
+    background-color: #4d4d4d;  /* Dark gray header */
+    color: white;
+    padding: 10px 0;
+    text-align: left;  /* Alignement à gauche */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0;
+    font-size: 24px;  /* Taille ajustée du titre */
+}
+
+header nav {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+header nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: inline-block;
+}
+
+header nav ul li {
+    display: inline;
+    margin-right: 10px;
+}
+
+header nav ul li a {
+    color: #f26822;  /* Monero orange for links */
+    text-decoration: none;
+}
+
+header nav ul li a:hover {
+    text-decoration: underline;  /* Effet hover subtil */
+}
+
+main {
+    padding: 20px;
+    background-color: white;  /* White background for main content for contrast */
+}
+
+footer {
+    background-color: #4d4d4d;  /* Dark gray footer */
+    color: white;
+    text-align: center;
+    padding: 10px 0;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
+
+.notification {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: #f26822;  /* Monero orange for notifications */
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.notification.show {
+    opacity: 1;
+}

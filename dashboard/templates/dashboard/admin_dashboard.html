@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Admin Dashboard</h2>
+
+<section>
+    <h3>Manage Admin/Staff Permissions</h3>
+    <form method="post" action="{% url 'manage_support_group' %}">
+        {% csrf_token %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Support Group</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                        <input type="checkbox" name="support_group" value="{{ user.id }}"
+                            {% if user.groups.filter(name="Support").exists %} checked {% endif %}>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="submit" class="btn btn-primary">Update Support Permissions</button>
+    </form>
+</section>
+
+<hr>
+
+<section>
+    <h3>Transaction & Withdrawal Fees</h3>
+    <form method="post" action="{% url 'admin_settings' %}">
+        {% csrf_token %}
+        <div class="form-group">
+            {{ form.as_p }}
+        </div>
+        <button type="submit" class="btn btn-success">Save Fees Settings</button>
+    </form>
+</section>
+
+<hr>
+
+<section>
+    <h3>All Ads</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Price</th>
+                <th>Currency</th>
+                <th>Posted By</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ad in ads %}
+            <tr>
+                <td>{{ ad.title }}</td>
+                <td>{{ ad.price }}</td>
+                <td>{{ ad.currency }}</td>
+                <td>{{ ad.seller.username }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<hr>
+
+<section>
+    <h3>All Transactions</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Amount</th>
+                <th>Currency</th>
+                <th>Buyer</th>
+                <th>Seller</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for transaction in transactions %}
+            <tr>
+                <td>{{ transaction.id }}</td>
+                <td>{{ transaction.amount }}</td>
+                <td>{{ transaction.ad.currency }}</td>
+                <td>{{ transaction.buyer.username }}</td>
+                <td>{{ transaction.seller.username }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+{% endblock %}

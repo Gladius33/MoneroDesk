@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Escrow Released</h2>
+
+<p>The escrow has been successfully released. The transaction is now marked as complete.</p>
+
+<!-- Optionally display a confirmation summary -->
+<p><strong>Transaction ID:</strong> {{ transaction.transaction_id }}</p>
+<p><strong>Amount Released:</strong> {{ transaction.transaction_amount }} XMR</p>
+<p><strong>Released to:</strong> {{ transaction.buyer.username }}</p>
+
+<!-- Link to go back to the transactions list -->
+<a href="{% url 'transaction_list' %}" class="btn btn-primary">Back to Transactions</a>
+{% endblock %}
