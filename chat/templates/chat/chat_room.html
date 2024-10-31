@@ -3,12 +3,12 @@
 {% block content %}
 <h2>Chat Room for Transaction {{ transaction.id }}</h2>
 
-<!-- Section d'affichage des messages -->
+<!-- Section to display chat messages -->
 <div id="chat-log">
     {% for message in messages %}
     <p>
         <strong>{{ message.sender.username }}:</strong> {{ message.text }}<br>
-        <small>{{ message.created_at|date:"Y-m-d H:i:s" }} UTC</small>  <!-- Affichage de l'heure UTC -->
+        <small>{{ message.created_at|date:"Y-m-d H:i:s" }} UTC</small>  <!-- UTC timestamp -->
     </p>
     {% if message.file %}
     <p><a href="{{ message.file.url }}">Download file</a></p>
@@ -16,47 +16,65 @@
     {% endfor %}
 </div>
 
-<!-- Formulaire pour envoyer des messages et des fichiers -->
+<!-- Form to send messages and upload files -->
 <form id="chat-form" method="post" enctype="multipart/form-data">
     {% csrf_token %}
     <textarea id="chat-message-input" name="text" rows="4"></textarea><br>
-    <input type="file" name="file"><br>
-    <small>Only images (jpg, png, gif, webp) and PDFs are allowed. Max size: 15MB.</small><br>  <!-- Info sur les formats autorisés -->
+    <input type="file" name="file" id="file-input"><br>
+    <small>Only images (jpg, png, gif, webp) and PDFs are allowed. Max size: 15MB.</small><br>
     <button type="submit" id="chat-message-submit">Send Message</button>
 </form>
 
-<!-- Bouton pour demander le support -->
+<!-- Display loading spinner during file uploads -->
+<div id="loading-spinner" style="display:none;">Uploading...</div>
+
+<!-- Button to request support -->
 <button id="support-button">Request Support</button>
 
-<!-- Si l'utilisateur est staff ou superadmin, afficher le bouton pour quitter le chat -->
+<!-- Button for staff or superusers to leave the chat -->
 {% if user.is_staff or user.is_superuser %}
     <button id="leave-support-button">Leave Chat</button>
 {% endif %}
 
 <script>
     const roomName = "{{ transaction.id }}";
-    const chatSocket = new WebSocket(
-        'ws://' + window.location.host + '/ws/chat/' + roomName + '/'
-    );
+    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    let chatSocket = null;
 
-    // Gestion des messages reçus via WebSocket
-    chatSocket.onmessage = function(e) {
-        const data = JSON.parse(e.data);
-        const chatLog = document.getElementById('chat-log');
+    // WebSocket connection with reconnection logic
+    function connectWebSocket() {
+        chatSocket = new WebSocket(protocol + window.location.host + '/ws/chat/' + roomName + '/');
 
-        if (data.event === 'message') {
-            const newMessage = document.createElement('p');
-            newMessage.innerHTML = '<strong>' + data.sender + ':</strong> ' + data.message + '<br>' +
-                                   '<small>' + new Date().toISOString().slice(0, 19).replace('T', ' ') + ' UTC</small>';
-            chatLog.appendChild(newMessage);
-        } else if (data.event === 'support_joined') {
-            chatLog.innerHTML += '<p><em>Support has joined the chat.</em></p>';
-        } else if (data.event === 'support_left') {
-            chatLog.innerHTML += '<p><em>Support has left the chat.</em></p>';
-        }
-    };
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const chatLog = document.getElementById('chat-log');
 
-    // Envoi du message via WebSocket
+            if (data.event === 'message') {
+                const newMessage = document.createElement('p');
+                newMessage.innerHTML = '<strong>' + data.sender + ':</strong> ' + data.message + '<br>' +
+                                       '<small>' + new Date().toISOString().slice(0, 19).replace('T', ' ') + ' UTC</small>';
+                chatLog.appendChild(newMessage);
+            } else if (data.event === 'support_joined') {
+                chatLog.innerHTML += '<p><em>Support has joined the chat.</em></p>';
+            } else if (data.event === 'support_left') {
+                chatLog.innerHTML += '<p><em>Support has left the chat.</em></p>';
+            }
+        };
+
+        chatSocket.onclose = function(e) {
+            console.error('Chat socket closed unexpectedly. Reconnecting...');
+            setTimeout(connectWebSocket, 5000); // Retry connection after 5 seconds
+        };
+
+        chatSocket.onerror = function(e) {
+            console.error("WebSocket error: ", e);
+            alert("An error occurred with the WebSocket connection.");
+        };
+    }
+
+    connectWebSocket();  // Initialize the WebSocket connection
+
+    // Send message via WebSocket
     document.getElementById('chat-message-submit').onclick = function(e) {
         const messageInputDom = document.getElementById('chat-message-input');
         const message = messageInputDom.value;
@@ -64,10 +82,24 @@
             'message': message,
             'event': 'message'
         }));
-        messageInputDom.value = '';
+        messageInputDom.value = '';  // Clear the input field
     };
 
-    // Demande de support via WebSocket
+    // Validate file size before submission
+    document.querySelector('#file-input').onchange = function(e) {
+        const file = this.files[0];
+        if (file.size > 15 * 1024 * 1024) {  // 15MB
+            alert("File size exceeds the 15MB limit.");
+            this.value = '';  // Clear the file input
+        }
+    };
+
+    // Show loading spinner during form submission
+    document.getElementById('chat-form').onsubmit = function(e) {
+        document.getElementById('loading-spinner').style.display = 'block';
+    };
+
+    // Request support via WebSocket
     document.getElementById('support-button').addEventListener('click', function() {
         fetch("{% url 'request_support' transaction.id %}", {
             method: 'POST',
@@ -79,7 +111,7 @@
         .then(data => alert('Support notified'));
     });
 
-    // Quitter le chat pour le support
+    // Leave chat for support staff
     {% if user.is_staff or user.is_superuser %}
     document.getElementById('leave-support-button').addEventListener('click', function() {
         fetch("{% url 'leave_support' transaction.id %}", {

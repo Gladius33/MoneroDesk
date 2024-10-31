@@ -2,13 +2,14 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from chat.models import ChatEncryptionKey
-from chat.views import decrypt_messages
+from chat.views import decrypt_messages, encrypt_message, encrypt_file, Message
 from monero_app.services import MoneroService
 from .models import Transaction
 from .forms import BuyTransactionForm
 from datetime import timedelta
 from django.utils import timezone
 from ads.models import Ad
+
 
 @login_required
 def transaction_detail_view(request, transaction_id):
@@ -21,36 +22,45 @@ def transaction_detail_view(request, transaction_id):
     xmr_to_fiat_rate = monero_service.get_monero_rate(chosen_fiat)
     fiat_price = transaction.transaction_amount * xmr_to_fiat_rate
 
-    # Fetch chat encryption key for the transaction
+    # Fetch chat encryption key and decrypt the messages
     chat_key = get_object_or_404(ChatEncryptionKey, transaction=transaction)
     decrypted_messages = decrypt_messages(transaction.messages.all(), chat_key, request.user)
 
+    # Handle the chat message POST
+    if request.method == 'POST':
+        text = request.POST.get('text')
+        file = request.FILES.get('file')
+        encrypted_text = encrypt_message(text, chat_key, request.user) if text else None
+        encrypted_file = encrypt_file(file, chat_key, request.user) if file else None
+
+        if text or file:
+            Message.objects.create(
+                transaction=transaction,
+                sender=request.user,
+                text=encrypted_text,
+                file=encrypted_file
+            )
+
     # Manage transaction type (sell/buy)
     if transaction.ad.type == 'sell':
-        # For 'sell' transactions
         payment_button_visible = not transaction.payment_sent
         escrow_address = transaction.ad.escrow_wallet_address
         show_escrow_qr = False
-        disable_cancel_button = timezone.now() > (transaction.created_at + timedelta(hours=1, minutes=30)) and not transaction.payment_sent
+        disable_cancel_button = (timezone.now() - transaction.created_at) > timedelta(hours=1, minutes=30) and not transaction.payment_sent
     else:
-        # For 'buy' transactions
         escrow_info = monero_service.create_escrow_subaddress(label=f"Escrow_Transaction_{transaction.id}")
         escrow_address = escrow_info['address']
         show_escrow_qr = True
 
-        # Check if seller has enough balance in their user wallet
+        # Check seller's balance
         seller_balance = monero_service.get_balance(transaction.seller.profile.user_subaddress)
         if seller_balance >= transaction.transaction_amount:
-            # Auto transfer if sufficient balance
             monero_service.send_xmr(to_address=escrow_address, amount=transaction.transaction_amount, escrow=True)
-            show_escrow_qr = False  # Do not show QR code as funds are automatically transferred
+            show_escrow_qr = False
         else:
-            # Show the remaining amount to be transferred
             remaining_amount = transaction.transaction_amount - seller_balance
-            # Adjust the transaction to handle the remaining amount to escrow
-            # Display escrow QR code for remaining balance
             messages.info(request, f"Please send {remaining_amount} XMR to the escrow.")
-
+        
         confirmations = monero_service.get_confirmations(escrow_address)
         disable_cancel_button = confirmations >= 5 and transaction.payment_sent
 
@@ -69,10 +79,19 @@ def transaction_detail_view(request, transaction_id):
 
 
 @login_required
+def transaction_list_view(request):
+    """
+    Displays a list of transactions for the logged-in user.
+    """
+    transactions = Transaction.objects.filter(buyer=request.user) | Transaction.objects.filter(seller=request.user)
+    return render(request, 'transactions/transaction_list.html', {'transactions': transactions})
+
+
+@login_required
 def cancel_transaction_view(request, transaction_id):
     transaction = get_object_or_404(Transaction, id=transaction_id)
     
-    if timezone.now() > (transaction.created_at + timedelta(hours=1, minutes=30)) and transaction.payment_sent:
+    if (timezone.now() - transaction.created_at) > timedelta(hours=1, minutes=30) and transaction.payment_sent:
         messages.error(request, "You cannot cancel the transaction after the payment has been sent.")
         return redirect('transaction_detail', transaction_id=transaction.id)
 

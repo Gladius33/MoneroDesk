@@ -15,9 +15,16 @@ class SupportRequest(models.Model):
     ], default='waiting')
     created_at = models.DateTimeField(auto_now_add=True)
     closed_at = models.DateTimeField(null=True, blank=True)
+    action_taken = models.CharField(max_length=50, choices=[
+        ('canceled', 'Transaction Canceled'),
+        ('validated', 'Escrow Released'),
+        ('no_action', 'No Action Taken')
+    ], default='no_action')
+    notes = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return f"Support Request for Transaction {self.transaction.id}"
+
 
 class ChatArchive(models.Model):
     support_request = models.ForeignKey(SupportRequest, on_delete=models.CASCADE)

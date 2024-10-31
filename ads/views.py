@@ -7,25 +7,53 @@ from decimal import Decimal
 from transactions.models import Transaction
 from monero_app.models import MoneroRate
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from .models import Ad
+from .forms import AdForm
+from django.contrib import messages
+from decimal import Decimal
+from transactions.models import Transaction
+from monero_app.models import MoneroRate
+from django.db.models import Q
+
+
 @login_required
 def ad_list_view(request):
     """
-    View to display the list of ads.
-    Allows filtering ads by type (buy or sell) and cryptocurrency.
+    View to display the list of ads with filtering capabilities
     """
     ads = Ad.objects.filter(active=True)  # Only show active ads
 
-    # Filtering ads by type and cryptocurrency
+    # Get filtering parameters from GET request
+    query = request.GET.get('query', '')
     ad_type = request.GET.get('type', '')
     crypto_currency = request.GET.get('crypto_currency', '')
-
+    fiat_currency = request.GET.get('fiat_currency', '')
+    payment_method = request.GET.get('payment_method', '')
+    min_price = request.GET.get('min_price', None)
+    max_price = request.GET.get('max_price', None)
+    user = request.GET.get('user', '')
+    
+    # Apply filters based on the user input
+    if query:
+        ads = ads.filter(Q(title__icontains=query) | Q(description__icontains=query))
     if ad_type:
         ads = ads.filter(type=ad_type)
     if crypto_currency:
         ads = ads.filter(crypto_currency=crypto_currency)
+    if fiat_currency:
+        ads = ads.filter(fiat_currency__icontains=fiat_currency)
+    if payment_method:
+        ads = ads.filter(payment_method__icontains=payment_method)
+    if min_price:
+        ads = ads.filter(price__gte=Decimal(min_price))
+    if max_price:
+        ads = ads.filter(price__lte=Decimal(max_price))
+    if user:
+        ads = ads.filter(user__username__icontains=user)
 
     return render(request, 'ads/ad_list.html', {'ads': ads})
-
 
 @login_required
 def ad_create_view(request):

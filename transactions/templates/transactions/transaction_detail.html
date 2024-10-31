@@ -21,10 +21,8 @@
     <p><strong>Confirmations:</strong> {{ confirmations }}</p>
 {% endif %}
 
-<!-- Include chatroom -->
+<!-- Chat section -->
 <h3>Chat with {{ transaction.seller.username }} and {{ transaction.buyer.username }}</h3>
-
-<!-- Chat messages -->
 <div id="chat-log">
     {% for message in chat %}
         <p>
@@ -63,3 +61,4 @@
 {% endif %}
 
 {% endblock %}
+

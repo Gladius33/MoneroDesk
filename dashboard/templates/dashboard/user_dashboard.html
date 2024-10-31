@@ -3,12 +3,14 @@
 {% block content %}
 <h2>User Dashboard</h2>
 
+<!-- Wallet Information -->
 <h3>Your Wallets</h3>
 <div>
     <p><strong>XMR Balance:</strong> {{ request.user.profile.xmr_balance }} XMR</p>
     <p><strong>XMR Wallet Address:</strong> {{ request.user.profile.xmr_wallet_address }}</p>
     <img src="https://chart.googleapis.com/chart?cht=qr&chs=250x250&chl={{ request.user.profile.xmr_wallet_address }}" alt="XMR Wallet QR Code">
     
+    <!-- XMR Withdrawal Form -->
     <form action="{% url 'withdraw_xmr' %}" method="post">
         {% csrf_token %}
         <input type="text" name="xmr_withdraw_address" placeholder="XMR Withdrawal Address" required>
@@ -17,6 +19,7 @@
     </form>
 </div>
 
+<!-- Ads Section -->
 <h3>Your Ads</h3>
 {% if ads %}
 <ul>
@@ -28,6 +31,7 @@
 <p>You have no active ads. <a href="{% url 'create_ad' %}">Create a new ad</a></p>
 {% endif %}
 
+<!-- Transactions Section -->
 <h3>Your Transactions</h3>
 {% if transactions %}
 <ul>
@@ -39,6 +43,7 @@
 <p>You have no transactions. <a href="{% url 'browse_ads' %}">Buy or sell Monero</a></p>
 {% endif %}
 
+<!-- Update Profile Section -->
 <h3>Update Profile</h3>
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
@@ -46,6 +51,7 @@
     <button type="submit">Update Profile</button>
 </form>
 
+<!-- Change Email Section -->
 <h3>Change Email</h3>
 <form method="post">
     {% csrf_token %}
@@ -53,6 +59,7 @@
     <button type="submit">Change Email</button>
 </form>
 
+<!-- Change Password Section -->
 <h3>Change Password</h3>
 <form method="post">
     {% csrf_token %}
@@ -60,6 +67,7 @@
     <button type="submit">Change Password</button>
 </form>
 
+<!-- Search Ads Section -->
 <h3>Search Ads</h3>
 <form action="{% url 'search_ads' %}" method="get">
     <input type="text" name="query" placeholder="Search ads...">

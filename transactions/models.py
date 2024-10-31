@@ -4,21 +4,39 @@ from ads.models import Ad
 from django.utils import timezone
 from monero_app.services import MoneroService
 from decimal import Decimal
-from chat.models import ChatEncryptionKey
 import secrets
 
+
+# AutoRefundUserList Model
+class AutoRefundUserList(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    auto_refund_enabled = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"AutoRefundUserList for {self.user.username}"
+
+
 class Transaction(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('canceled', 'Canceled'),
+    ]
+
     buyer = models.ForeignKey(User, related_name='buyer', on_delete=models.CASCADE)
     seller = models.ForeignKey(User, related_name='seller', on_delete=models.CASCADE)
     ad = models.ForeignKey(Ad, on_delete=models.CASCADE)
     transaction_amount = models.DecimalField(max_digits=20, decimal_places=8)  # Amount of the transaction
     price = models.DecimalField(max_digits=20, decimal_places=8)  # Price of Monero in fiat currency
     fee_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('1.0'))  # Default 1% fee
-    fiat_currency = models.CharField(max_length=3, choices=[('USD', 'USD'), ('EUR', 'EUR'), ('CHF', 'CHF'), ('RUB', 'RUB'), ('CAD', 'CAD'), ('CNY', 'CNY')])
+    fiat_currency = models.CharField(max_length=3, choices=[
+        ('USD', 'USD'), ('EUR', 'EUR'), ('CHF', 'CHF'), ('RUB', 'RUB'), ('CAD', 'CAD'), ('CNY', 'CNY')
+    ])
     payment_methods = models.CharField(max_length=255)
     escrow_wallet_address = models.CharField(max_length=255, blank=True, null=True)  # Escrow address
     escrow_released = models.BooleanField(default=False)
     payment_sent = models.BooleanField(default=False)  # Track when buyer marks payment as sent
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')  # Status of the transaction
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(default=timezone.now() + timezone.timedelta(hours=1, minutes=30))
     transaction_id = models.CharField(max_length=255, unique=True, blank=True, null=True)
@@ -27,7 +45,6 @@ class Transaction(models.Model):
     def create_sell_transaction(cls, buyer, ad, transaction_amount):
         """
         Creates a sell transaction where the buyer purchases XMR from the seller (ad owner).
-        The buyer chooses the transaction amount between min_amount and max_amount.
         """
         if ad.type == 'sell':
             if transaction_amount < ad.min_amount or transaction_amount > ad.max_amount:
@@ -132,6 +149,7 @@ class Transaction(models.Model):
             self.save()
 
     def create_chatroom(self):
+        from chat.models import ChatEncryptionKey
         buyer_key = secrets.token_urlsafe(32)
         seller_key = secrets.token_urlsafe(32)
 
@@ -142,6 +160,7 @@ class Transaction(models.Model):
         )
 
     def save(self, *args, **kwargs):
+        from chat.models import ChatEncryptionKey
         if not self.transaction_id:
             self.transaction_id = secrets.token_urlsafe(12)
         super().save(*args, **kwargs)
@@ -151,7 +170,3 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f'Transaction {self.transaction_id} between {self.buyer.username} and {self.seller.username}'
-
-
-
-

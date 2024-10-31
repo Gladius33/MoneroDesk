@@ -9,24 +9,31 @@ from Crypto.Cipher import AES
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 from mimetypes import guess_type
+import logging
 
-# Formats autorisés
+# Allowed formats and file size
 ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg', 'application/pdf']
-MAX_FILE_SIZE = 15 * 1024 * 1024  # 15 Mo
+MAX_FILE_SIZE = 15 * 1024 * 1024  # 15 MB
+
+# Set up logging for the consumer
+logger = logging.getLogger(__name__)
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        """
+        Connect the WebSocket to the appropriate chat room based on the transaction.
+        """
         self.transaction_id = self.scope['url_route']['kwargs']['transaction_pk']
         self.room_group_name = f'chat_{self.transaction_id}'
 
-        # Rejoindre le groupe de la salle
+        # Join the room group
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
         await self.accept()
 
-        # Notifier les participants si le support rejoint le chat
+        # Notify if support has joined
         if self.scope["user"].is_staff or self.scope["user"].is_superuser:
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -37,13 +44,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
 
     async def disconnect(self, close_code):
-        # Quitter le groupe de la salle
+        """
+        Disconnect the WebSocket and remove from the room group.
+        """
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
 
-        # Notifier les participants si le support quitte le chat
+        # Notify if support has left
         if self.scope["user"].is_staff or self.scope["user"].is_superuser:
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -54,21 +63,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
 
     async def receive(self, text_data):
+        """
+        Receive a message or file, encrypt it, and broadcast it to the chat room.
+        """
         text_data_json = json.loads(text_data)
         message_content = text_data_json.get('message')
         sender_user = self.scope["user"]
 
-        # Récupérer la transaction liée
+        # Fetch the transaction and encryption key
         transaction = get_object_or_404(Transaction, id=self.transaction_id)
-
-        # Récupérer la clé de chiffrement pour la transaction
         chat_key = get_object_or_404(ChatEncryptionKey, transaction=transaction)
 
-        # Si c'est un fichier qui est envoyé, gérer l'envoi de fichier
+        # Handle file uploads
         file = text_data_json.get('file')
         if file:
             encrypted_file = self.encrypt_file(file, chat_key, sender_user)
-            # Valider et enregistrer le fichier crypté
             Message.objects.create(
                 transaction=transaction,
                 sender=sender_user,
@@ -76,49 +85,53 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 file=encrypted_file
             )
 
-        # Si c'est un message texte, le gérer
+        # Handle text messages
         if message_content:
             encrypted_message = self.encrypt_message(message_content, chat_key, sender_user)
-            # Enregistrer le message dans la base de données (crypté)
             Message.objects.create(
                 transaction=transaction,
                 sender=sender_user,
                 text=encrypted_message
             )
 
-        # Envoyer le message au groupe de la salle (texte brut pour l'affichage immédiat)
+        # Broadcast the message to the room group
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'chat_message',
-                'message': message_content,  # Message en texte brut pour les autres
+                'message': message_content,
                 'sender': sender_user.username
             }
         )
 
     async def chat_message(self, event):
+        """
+        Handle incoming messages and broadcast them to WebSocket clients.
+        """
         message = event['message']
         sender = event['sender']
 
-        # Envoyer le message au WebSocket
+        # Send message to WebSocket
         await self.send(text_data=json.dumps({
             'message': message,
             'sender': sender
         }))
 
     async def support_joined(self, event):
+        """
+        Notify when support has joined the chat.
+        """
         message = event['message']
-
-        # Notifier que le support a rejoint
         await self.send(text_data=json.dumps({
             'message': message,
             'event': 'support_joined'
         }))
 
     async def support_left(self, event):
+        """
+        Notify when support has left the chat.
+        """
         message = event['message']
-
-        # Notifier que le support a quitté
         await self.send(text_data=json.dumps({
             'message': message,
             'event': 'support_left'
@@ -126,7 +139,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     def encrypt_message(self, message, chat_key, user):
         """
-        Fonction pour chiffrer un message avec la clé de chat fournie.
+        Encrypt a text message using AES encryption.
         """
         key = self.get_user_chat_key(chat_key, user)
         cipher = AES.new(base64.b64decode(key), AES.MODE_EAX)
@@ -136,7 +149,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     def encrypt_file(self, file, chat_key, user):
         """
-        Fonction pour chiffrer un fichier avant de l'envoyer via WebSocket.
+        Encrypt an uploaded file using AES encryption.
         """
         self.validate_file(file)
         key = self.get_user_chat_key(chat_key, user)
@@ -147,43 +160,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return base64.b64encode(nonce + tag + ciphertext)
 
     def validate_file(self, file: UploadedFile):
-        """Valide la taille et le type du fichier."""
+        """
+        Validate the file's size and type before processing.
+        """
         if file.size > MAX_FILE_SIZE:
-            raise ValidationError("La taille du fichier dépasse la limite de 15 Mo.")
-        
-        # Vérification du type MIME basé sur le contenu
+            raise ValidationError(f"File size exceeds the maximum limit of {MAX_FILE_SIZE // (1024 * 1024)} MB.")
+
         file_type, _ = guess_type(file.name)
         if file_type not in ALLOWED_FILE_TYPES:
-            raise ValidationError(f"Type de fichier invalide : {file_type}. Seules les images et PDF sont autorisés.")
-        
-        # Validation du type MIME en inspectant le contenu réel du fichier
-        if not self.is_valid_mime_type(file, file_type):
-            raise ValidationError("Le contenu du fichier ne correspond pas à son extension. Upload rejeté.")
-
-    def is_valid_mime_type(self, file: UploadedFile, mime_type: str):
-        """Vérifie que le type MIME du fichier correspond au contenu réel."""
-        try:
-            if 'image' in mime_type:
-                from PIL import Image
-                img = Image.open(file)
-                img.verify()  # Vérifie que c'est une image valide
-            elif mime_type == 'application/pdf':
-                file.seek(0)
-                return file.read(4) == b'%PDF'
-            return True
-        except Exception:
-            return False
+            raise ValidationError(f"Invalid file type: {file_type}. Allowed types: {', '.join(ALLOWED_FILE_TYPES)}")
 
     def get_user_chat_key(self, chat_key, user):
         """
-        Fonction pour récupérer la clé de chat de l'utilisateur (acheteur, vendeur, ou support).
+        Retrieve the encryption key for the buyer, seller, or support.
         """
         if user == chat_key.transaction.buyer:
             return chat_key.buyer_key
         elif user == chat_key.transaction.seller:
             return chat_key.seller_key
         elif user.is_staff or user.is_superuser:
-            # Utilise une clé partagée pour le support (ou clé du buyer selon la logique)
-            return chat_key.buyer_key
+            return chat_key.buyer_key  # Support uses buyer key by default
         else:
-            raise ValueError("L'utilisateur n'a pas accès à cette clé de chiffrement.")
+            raise ValueError("User does not have access to the chat encryption key.")

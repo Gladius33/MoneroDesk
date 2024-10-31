@@ -8,12 +8,13 @@ from django.contrib import messages
 from django.conf import settings
 from .models import User, Profile
 
+
 @login_required
 def profile_view(request):
     profile = request.user.profile
     monero_service = MoneroService()
 
-    # Get real-time Monero balance and transactions
+    # Fetch real-time Monero balance and transactions
     try:
         monero_data = monero_service.get_subaddress_balance_and_transactions(profile.user_subaddress)
         xmr_balance = monero_data['balance']
@@ -48,10 +49,10 @@ def profile_view(request):
         'transactions': transactions
     })
 
+
 @login_required
 def withdraw_xmr_view(request):
     profile = request.user.profile
-    monero_service = MoneroService()
 
     if request.method == 'POST':
         form = XMRWithdrawForm(request.POST)
@@ -61,23 +62,19 @@ def withdraw_xmr_view(request):
             fee_percentage = get_withdraw_fee_percentage()
 
             try:
-                # Handle withdrawal via MoneroService
-                tx_hash = monero_service.send_transaction(
-                    from_subaddress=profile.user_subaddress,
-                    to_address=withdraw_address,
-                    amount=amount,
-                    fee=fee_percentage
-                )
-                if tx_hash:
-                    messages.success(request, f"Withdrawal successful! Transaction hash: {tx_hash}")
-                else:
-                    raise ValueError("Transaction failed.")
+                # Process withdrawal via MoneroService
+                profile.withdraw_monero(amount, withdraw_address, fee_percentage)
+                messages.success(request, "Withdrawal is being processed. You will receive a confirmation once the transaction is complete.")
             except ValueError as e:
                 messages.error(request, str(e))
+            except Exception as e:
+                messages.error(request, "An unexpected error occurred. Please try again later.")
             return redirect('profile')
     else:
         form = XMRWithdrawForm()
+    
     return render(request, 'accounts/withdraw_xmr.html', {'form': form, 'xmr_balance': profile.xmr_balance})
+
 
 def signup_view(request):
     if request.method == 'POST':
@@ -91,7 +88,7 @@ def signup_view(request):
                     referrer.profile.referred_users.add(user)
                     referrer.profile.save()
 
-            # Create a Monero subaddress for the new user after account creation
+            # Create a Monero subaddress for the new user
             monero_service = MoneroService()
             try:
                 subaddress = monero_service.create_user_subaddress(label=user.username)
@@ -101,14 +98,16 @@ def signup_view(request):
                 messages.error(request, f"Error creating Monero subaddress: {e}")
                 return redirect('signup')
 
-            # Create a profile and store the subaddress in the user profile
-            profile = Profile.objects.create(user=user, user_subaddress=subaddress['address'])
+            # Create a profile and store the subaddress
+            Profile.objects.create(user=user, user_subaddress=subaddress['address'])
             messages.success(request, "Account created successfully with Monero subaddress!")
             return redirect('login')
     else:
         form = SignupForm()
+    
     return render(request, 'accounts/signup.html', {'form': form})
 
-# Fonction pour obtenir les frais de retrait
+
+# Function to get the withdrawal fee percentage
 def get_withdraw_fee_percentage():
     return settings.WITHDRAW_FEE_PERCENTAGE if hasattr(settings, 'WITHDRAW_FEE_PERCENTAGE') else Decimal('0.01')

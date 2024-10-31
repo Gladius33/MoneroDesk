@@ -8,5 +8,7 @@ urlpatterns = [
     path('transactions/', include('transactions.urls')),
     path('chat/', include('chat.urls')),
     path('dashboard/', include('dashboard.urls')),
-    path('', include('ads.urls')),  # Landing page points to ads
+    path('support/', include('support.urls')),  # Add support app
+    path('monero/', include('monero_app.urls')),  # Add monero_app for API or background tasks
+    path('', include('ads.urls')),  # Landing page points to ads and search ads
 ]

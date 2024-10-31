@@ -1,8 +1,6 @@
 import os
 from pathlib import Path
 from decouple import config, Csv
-from monero.wallet import Wallet
-from monero.backends.jsonrpc import JSONRPCWallet
 import sys
 
 
@@ -11,10 +9,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Chargement des configurations sensibles depuis le fichier .env
 SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost, 127.0.0.1', cast=Csv())
 
-# Configuration de la base de données
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -34,13 +31,38 @@ if not DEBUG:
         }
     }
 
-if DEBUG :
-    DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
+# Security
+#SECURE_SSL_REDIRECT = True
+#CSRF_COOKIE_SECURE = True
+#X_FRAME_OPTIONS = 'DENY'
+#SECURE_HSTS_SECONDS = 31536000  # 1 year
+#SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+#SECURE_HSTS_PRELOAD = True
+#SECURE_CONTENT_TYPE_NOSNIFF = True
+#SECURE_BROWSER_XSS_FILTER = True
+#SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"
+#SESSION_COOKIE_SECURE = True  # Garantit que les cookies sont transmis uniquement via HTTPS
+#SESSION_COOKIE_HTTPONLY = True  # Empêche l'accès aux cookies par JavaScript (contre XSS)
+#SESSION_COOKIE_SAMESITE = 'Strict'  # Empêche l’envoi de cookies lors des requêtes intersites (protection contre le CSRF)
+#SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_PERMISSIONS_POLICY = {
+    "geolocation": ["'none'"],  # Interdit la géolocalisation
+    "camera": ["'none'"],  # Désactive l'accès à la caméra
+    "microphone": ["'none'"],  # Désactive le microphone
+    "payment": ["'none'"],  # Désactive les API de paiement
+    "fullscreen": ["'self'"],  # Autorise le plein écran uniquement sur le domaine
+    "accelerometer": ["'none'"],  # Désactive les capteurs d'accélération
+    "ambient-light-sensor": ["'none'"],  # Désactive le capteur de lumière ambiante
+    "autoplay": ["'none'"],  # Empêche la lecture automatique des vidéos
+    "encrypted-media": ["'none'"],  # Désactive le déchiffrement des médias protégés
+    "gyroscope": ["'none'"],  # Désactive le gyroscope
+    "magnetometer": ["'none'"],  # Désactive le magnétomètre
+    "usb": ["'none'"],  # Interdit l'accès aux périphériques USB
+    "xr-spatial-tracking": ["'none'"]  # Désactive le suivi spatial XR
 }
+DEBUG = False
+
+
 
 # Configuration Celery
 CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Utilise Redis comme broker
@@ -49,6 +71,13 @@ CELERY_ACCEPT_CONTENT = ['json']  # Format de contenu accepté
 CELERY_TASK_SERIALIZER = 'json'  # Sérialisation des tâches au format JSON
 CELERY_RESULT_SERIALIZER = 'json'  # Sérialisation des résultats au format JSON
 CELERY_TIMEZONE = 'UTC'  # Fuseau horaire
+CELERY_BEAT_SCHEDULE = {
+    'fetch-monero-rates-every-minute': {
+        'task': 'monero_app.tasks.fetch_monero_rates',  # The task to fetch Monero rates
+        'schedule': 60.0,  # Schedule the task to run every 60 seconds (1 minute)
+    },
+}
+
 
 # Applications installées
 INSTALLED_APPS = [
@@ -67,8 +96,8 @@ INSTALLED_APPS = [
     'support',
     'monero_app',
     'redis',
+    'django_celery_beat',
 ]
-
 # Middleware utilisé par Django
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -132,12 +161,12 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Réglages pour les fichiers médias
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = '/Home/web/monerodesk.org/public_html/media/'
 
 # Réglages pour les fichiers statiques
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = '/Home/web/monerodesk.org/public_html/static/'
+#STATICFILES_DIRS = ['/Home/web/monerodesk.org/public_html/static/']
 
 # Redirections après login/logout
 LOGIN_REDIRECT_URL = 'user_dashboard'
@@ -153,23 +182,41 @@ USE_TZ = True
 # Utilisation du champ auto par défaut pour les modèles
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Configuration des reseaux Xmr
-if DEBUG:
-    XMR_RPC_PORT = 28088
-    XMR_RPC_HOST = '127.0.0.1'
-else:
-    XMR_RPC_PORT = 18081 
-
-w = Wallet(JSONRPCWallet(port=28088))
-w.address = config('XMR_WALLET')
-try:
-    wallet = Wallet(JSONRPCWallet(host=XMR_RPC_HOST, port=XMR_RPC_PORT))
-    # Vous pouvez ajouter des appels qui ne provoquent pas d'erreurs ici, comme obtenir le solde
-    balance = wallet.balance()  # Exemple d'appel sécurisé
-except Exception as e:
-    # Gérer les exceptions si nécessaire
-    print(f"Erreur lors de l'initialisation du portefeuille Monero : {e}")
+# Monero RPC Configuration
+XMR_RPC_HOST = '127.0.0.1'
+XMR_RPC_PORT = 28088 if DEBUG else 18081
 
 # Configuration pour les tests
 if 'test' in sys.argv:
     ALLOWED_HOSTS = ['testserver']
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'debug.log'),
+            'maxBytes': 1024 * 1024 * 5,  # 5 MB
+            'backupCount': 3,
+        },
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'errors.log'),
+            'maxBytes': 1024 * 1024 * 5,  # 5 MB
+            'backupCount': 3,
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'error_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
+
+

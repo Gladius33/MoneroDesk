@@ -5,43 +5,59 @@ from .models import Message, ChatEncryptionKey
 from transactions.models import Transaction
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-import json
+from django.core.exceptions import ValidationError
+from mimetypes import guess_type
+from django.contrib import messages
+from django.core.files.uploadedfile import UploadedFile
 import base64
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
-from django.core.exceptions import ValidationError
-from django.core.files.uploadedfile import UploadedFile
-from mimetypes import guess_type
-from django.contrib import messages
+import logging
+import json
 
-# Formats autorisés
+
+# Allowed formats and file size
 ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg', 'application/pdf']
-MAX_FILE_SIZE = 15 * 1024 * 1024  # 15 Mo
+MAX_FILE_SIZE = 15 * 1024 * 1024  # 15 MB
+
+# Set up logging for the chat application
+logger = logging.getLogger(__name__)
 
 @login_required
 def chat_room_view(request, transaction_pk):
+    """
+    Displays the chat room for a specific transaction and handles message/file submission.
+    """
     transaction = get_object_or_404(Transaction, pk=transaction_pk)
     chat_key = get_object_or_404(ChatEncryptionKey, transaction=transaction)
 
-    # Vérifiez si l'utilisateur fait partie de la transaction ou est membre du support
-    if not (request.user == transaction.buyer or request.user == transaction.seller or request.user.is_staff or request.user.is_superuser):
+    # Validate user access
+    if not (request.user == transaction.buyer or request.user == transaction.seller or request.user.is_staff):
         messages.error(request, "You are not authorized to access this chat.")
-        return redirect('some_other_view')  # Redirection vers une autre vue (ex: page d'accueil)
+        return redirect('some_other_view')
 
     if request.method == 'POST':
         text = request.POST.get('text')
         file = request.FILES.get('file')
+
+        # Encrypt message if available
         encrypted_text = encrypt_message(text, chat_key, request.user) if text else None
         encrypted_file = encrypt_file(file, chat_key, request.user) if file else None
 
+        # Save message or file
         if text or file:
-            Message.objects.create(
-                transaction=transaction,
-                sender=request.user,
-                text=encrypted_text,
-                file=encrypted_file
-            )
+            try:
+                Message.objects.create(
+                    transaction=transaction,
+                    sender=request.user,
+                    text=encrypted_text,
+                    file=encrypted_file
+                )
+            except ValidationError as e:
+                messages.error(request, f"Error: {e.message}")
+                logger.error(f"Validation error while saving message: {e}")
 
+    # Decrypt messages for display
     messages_list = decrypt_messages(transaction.messages.all(), chat_key, request.user)
     return render(request, 'chat/chat_room.html', {
         'transaction': transaction,
@@ -49,6 +65,9 @@ def chat_room_view(request, transaction_pk):
     })
 
 def encrypt_message(message, chat_key, user):
+    """
+    Encrypts a message using AES encryption.
+    """
     key = get_user_chat_key(chat_key, user)
     cipher = AES.new(base64.b64decode(key), AES.MODE_EAX)
     nonce = cipher.nonce
@@ -56,6 +75,9 @@ def encrypt_message(message, chat_key, user):
     return base64.b64encode(nonce + tag + ciphertext).decode('utf-8')
 
 def decrypt_messages(messages, chat_key, user):
+    """
+    Decrypts all messages for a chat session.
+    """
     decrypted_messages = []
     for message in messages:
         decrypted_text = decrypt_message(message.text, chat_key, user)
@@ -68,6 +90,9 @@ def decrypt_messages(messages, chat_key, user):
     return decrypted_messages
 
 def decrypt_message(encrypted_message, chat_key, user):
+    """
+    Decrypts an individual encrypted message.
+    """
     key = get_user_chat_key(chat_key, user)
     data = base64.b64decode(encrypted_message)
     nonce, tag, ciphertext = data[:16], data[16:32], data[32:]
@@ -75,8 +100,11 @@ def decrypt_message(encrypted_message, chat_key, user):
     return cipher.decrypt_and_verify(ciphertext, tag).decode('utf-8')
 
 def encrypt_file(file, chat_key, user):
+    """
+    Encrypts an uploaded file using AES encryption before storing it.
+    """
     if file:
-        validate_file(file)  # Validation de la taille et du type de fichier
+        validate_file(file)  # Validate file before encryption
         key = get_user_chat_key(chat_key, user)
         cipher = AES.new(base64.b64decode(key), AES.MODE_EAX)
         nonce = cipher.nonce
@@ -86,67 +114,57 @@ def encrypt_file(file, chat_key, user):
         return encrypted_file_data
 
 def validate_file(file: UploadedFile):
-    """Validation du fichier uploadé en fonction de la taille et du type."""
+    """
+    Validates the uploaded file's size and MIME type.
+    """
     if file.size > MAX_FILE_SIZE:
-        raise ValidationError("La taille du fichier dépasse la limite de 15 Mo.")
+        raise ValidationError(f"File size exceeds the maximum limit of {MAX_FILE_SIZE // (1024 * 1024)} MB.")
     
-    # Vérification du type MIME (basé sur le contenu)
     file_type, _ = guess_type(file.name)
     if file_type not in ALLOWED_FILE_TYPES:
-        raise ValidationError(f"Type de fichier invalide : {file_type}. Seules les images et les fichiers PDF sont autorisés.")
-    
-    # Vérification approfondie du type MIME par inspection du contenu du fichier
-    if not is_valid_mime_type(file, file_type):
-        raise ValidationError("Le contenu du fichier ne correspond pas à son extension. Upload rejeté.")
-
-def is_valid_mime_type(file: UploadedFile, mime_type: str):
-    """Vérification approfondie du type MIME en inspectant le contenu binaire du fichier."""
-    try:
-        if 'image' in mime_type:
-            # Si c'est une image, essayer de la charger pour valider le contenu
-            from PIL import Image
-            img = Image.open(file)
-            img.verify()  # Vérification que c'est bien un fichier image valide
-        elif mime_type == 'application/pdf':
-            # Vérification simple pour les fichiers PDF : s'assurer que le fichier commence par '%PDF'
-            file.seek(0)  # Se déplacer au début du fichier
-            return file.read(4) == b'%PDF'
-        return True
-    except Exception:
-        return False
+        raise ValidationError(f"Invalid file type: {file_type}. Allowed types: {', '.join(ALLOWED_FILE_TYPES)}")
 
 def get_user_chat_key(chat_key, user):
+    """
+    Retrieves the appropriate encryption key for the user.
+    """
     if user == chat_key.transaction.buyer:
         return chat_key.buyer_key
     elif user == chat_key.transaction.seller:
         return chat_key.seller_key
     else:
-        raise ValueError("L'utilisateur n'a pas accès à cette clé de chiffrement du chat.")
+        raise ValueError("The user does not have access to this encryption key.")
 
 @login_required
 def request_support(request, transaction_pk):
+    """
+    Notifies the support team to join the chat.
+    """
     transaction = get_object_or_404(Transaction, pk=transaction_pk)
     chat_key = get_object_or_404(ChatEncryptionKey, transaction=transaction)
 
-    # Notifier le support via WebSocket
+    # Notify support via WebSocket
     notify_support(transaction, chat_key)
 
     return JsonResponse({'status': 'Support notified'})
 
 @login_required
 def leave_support(request, transaction_pk):
+    """
+    Notifies that the support team has left the chat.
+    """
     transaction = get_object_or_404(Transaction, pk=transaction_pk)
 
-    if request.user.is_staff or request.user.is_superuser:
-        # Notifier que le support a quitté le chat
+    if request.user.is_staff:
         notify_support_left(transaction)
-
         return JsonResponse({'status': 'Support left the chat'})
     else:
         return JsonResponse({'status': 'Unauthorized'}, status=403)
 
 def notify_support(transaction, chat_key):
-    # Préparation des données pour la notification
+    """
+    Sends a notification to the support team via WebSocket.
+    """
     notification_data = {
         'type': 'support.notification',
         'transaction_id': transaction.id,
@@ -158,24 +176,24 @@ def notify_support(transaction, chat_key):
         }
     }
 
-    # Envoi de la notification via WebSocket
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
-        'support_group',  # Le groupe auquel tous les agents de support sont connectés
+        'support_group',
         {
-            'type': 'chat_message',  # Le type de message
+            'type': 'chat_message',
             'message': json.dumps(notification_data)
         }
     )
 
 def notify_support_left(transaction):
-    # Préparation des données pour notifier que le support a quitté
+    """
+    Sends a notification to indicate the support team has left the chat.
+    """
     notification_data = {
         'type': 'support_left',
         'transaction_id': transaction.id
     }
 
-    # Envoi de la notification via WebSocket
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
         'support_group',

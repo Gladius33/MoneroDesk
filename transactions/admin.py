@@ -4,7 +4,6 @@ from django.contrib.auth.models import User
 from decimal import Decimal
 from monero_app.services import MoneroService
 
-# Liste des utilisateurs avec remboursement automatique des frais
 class AutoRefundUserListAdmin(admin.ModelAdmin):
     list_display = ('user', 'auto_refund_enabled')
     search_fields = ('user__username',)
@@ -13,16 +12,10 @@ class AutoRefundUserListAdmin(admin.ModelAdmin):
     actions = ['enable_auto_refund', 'disable_auto_refund']
 
     def enable_auto_refund(self, request, queryset):
-        """
-        Activer le remboursement automatique pour les utilisateurs sélectionnés.
-        """
         queryset.update(auto_refund_enabled=True)
         self.message_user(request, "Auto refund enabled for selected users.")
 
     def disable_auto_refund(self, request, queryset):
-        """
-        Désactiver le remboursement automatique pour les utilisateurs sélectionnés.
-        """
         queryset.update(auto_refund_enabled=False)
         self.message_user(request, "Auto refund disabled for selected users.")
 

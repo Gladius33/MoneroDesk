@@ -1,8 +1,11 @@
-import os
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from monero_app.services import MoneroService
+from decimal import Decimal
+from celery import shared_task
+import logging
 
+logger = logging.getLogger(__name__)
 
 class User(AbstractUser):
     groups = models.ManyToManyField(
@@ -23,6 +26,7 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     bio = models.TextField(blank=True, null=True)
@@ -38,33 +42,61 @@ class Profile(models.Model):
         return f'{self.user.username} Profile'
 
     def update_balance_and_transactions(self):
+        """
+        Met à jour le solde Monero et récupère les transactions pour le sous-adresse de l'utilisateur.
+        """
         monero_service = MoneroService()
-        balance_data = monero_service.get_subaddress_balance_and_transactions(self.user_subaddress)
-        self.xmr_balance = balance_data['balance']
-        self.save()
-        return balance_data
+        try:
+            balance_data = monero_service.get_subaddress_balance_and_transactions(self.user_subaddress)
+            if balance_data:
+                self.xmr_balance = balance_data['balance']
+                self.save()
+                logger.info(f"Balance and transactions updated for {self.user.username}.")
+                return balance_data
+            else:
+                logger.warning(f"Failed to fetch balance data for {self.user.username}.")
+                raise ValueError("Unable to fetch balance data from Monero service.")
+        except Exception as e:
+            logger.error(f"Error fetching balance and transactions for {self.user.username}: {e}")
+            raise ValueError(f"Error fetching balance and transactions: {e}")
 
-
-    # Gérer le retrait de Monero avec les frais
     def withdraw_monero(self, amount, withdraw_address, fee_percentage):
         """
-        Effectue un retrait de Monero depuis le portefeuille de l'utilisateur avec calcul des frais.
+        Effectue un retrait de Monero avec les frais et met à jour le solde.
         """
-        if self.xmr_balance >= amount:
-            fees = amount * (fee_percentage / 100)
-            net_amount = amount - fees
-            
-            # Initialiser le portefeuille Monero à partir de l'adresse de l'utilisateur
-            wallet = MoneroWallet(self.xmr_wallet_address)
-            
-            # Effectuer le transfert Monero
-            tx_hash = wallet.transfer([{'address': withdraw_address, 'amount': net_amount}], priority=2)
-            
-            # Mise à jour du solde
-            self.xmr_balance -= amount
-            self.save()
-            
-            return tx_hash
-        else:
+        if amount <= 0:
+            raise ValueError("Amount must be greater than zero.")
+        if self.xmr_balance < amount:
             raise ValueError("Insufficient balance for withdrawal.")
 
+        fees = amount * (fee_percentage / 100)
+        net_amount = amount - fees
+        if net_amount <= 0:
+            raise ValueError("The amount after fees must be greater than zero.")
+
+        # Utilisation de Celery pour effectuer le retrait de manière asynchrone
+        process_withdrawal_task.delay(self.id, withdraw_address, net_amount, amount, fees)
+
+
+# Définir la tâche Celery en dehors de la classe Profile
+@shared_task
+def process_withdrawal_task(profile_id, withdraw_address, net_amount, total_amount, fees):
+    """
+    Tâche asynchrone pour traiter le retrait Monero.
+    """
+    try:
+        profile = Profile.objects.get(id=profile_id)
+        monero_service = MoneroService()
+
+        # Effectuer la transaction Monero avec le service MoneroService
+        tx_hash = monero_service.send_xmr(withdraw_address, net_amount)
+        if tx_hash:
+            profile.xmr_balance -= total_amount  # Réduire le montant total du solde
+            profile.save()
+            logger.info(f"Withdrawal of {net_amount} XMR successful for {profile.user.username}. TX Hash: {tx_hash}")
+        else:
+            logger.warning(f"Transaction failed for {profile.user.username}.")
+            raise ValueError("Transaction failed.")
+    except Exception as e:
+        logger.error(f"Error processing Monero withdrawal for profile {profile_id}: {e}")
+        raise ValueError(f"Error processing the Monero transaction: {e}")

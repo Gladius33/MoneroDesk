@@ -7,9 +7,11 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
     path('ads/', include('ads.urls')),
-    path('transactions/', include('transactions.urls')),
     path('chat/', include('chat.urls')),
+    path('transactions/', include('transactions.urls')),
+    path('monero_app/', include('monero_app.urls')),
     path('dashboard/', include('dashboard.urls')),
+    path('support/', include('support.urls')),
 ]
 
 if settings.DEBUG:
