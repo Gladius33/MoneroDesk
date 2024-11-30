@@ -1,7 +1,7 @@
 # Marketplace Project
 
 ## Introduction
-This is a simple marketplace application built with Django. Users can sign up, create ads, engage in transactions, and chat with others.
+This is a P2P marketplace application based on Monero (XMR) built with Django. Users can sign up, create ads, engage in transactions, and chat with others.
 
 ## Installation
 
