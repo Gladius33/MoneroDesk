@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Chargement des configurations sensibles depuis le fichier .env
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '54.36.175.127', 'monerodesk.org', 'www.monerodesk.org', 'hest.monerodesk.org', 'www.hest.monerodesk.org']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '54.36.175.127', 'monerodesk.org', 'www.monerodesk.org', 'hest.monerodesk.org', 'www.hest.monerodesk.org', 'webmail.monerodesk.org']
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
