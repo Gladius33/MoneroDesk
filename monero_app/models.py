@@ -1,15 +1,27 @@
+import base64
 from django.db import models
 from Crypto.Cipher import AES
 from django.conf import settings
 from decimal import Decimal
 
+def get_aes_key():
+    key_b64 = settings.MONERO_APP_SECRET_KEY
+    try:
+        key = base64.b64decode(key_b64)
+    except Exception as e:
+        raise ValueError(f"Échec de décodage base64 de MONERO_APP_SECRET_KEY : {e}")
+    if len(key) not in (16, 24, 32):
+        raise ValueError(f"Longueur de clé AES invalide : {len(key)} octets")
+    return key
+
 class EncryptedField(models.CharField):
     """
-    Field to encrypt data before storing it in the database.
+    Champ Django personnalisé avec chiffrement AES en EAX.
     """
     def get_db_prep_value(self, value, connection, prepared=False):
         if value:
-            cipher = AES.new(settings.MONERO_APP_SECRET_KEY.encode('utf-8'), AES.MODE_EAX)
+            key = get_aes_key()
+            cipher = AES.new(key, AES.MODE_EAX)
             ciphertext, tag = cipher.encrypt_and_digest(value.encode('utf-8'))
             return cipher.nonce.hex() + tag.hex() + ciphertext.hex()
         return value
@@ -17,14 +29,14 @@ class EncryptedField(models.CharField):
     def from_db_value(self, value, expression, connection):
         if value:
             try:
+                key = get_aes_key()
                 nonce = bytes.fromhex(value[:32])
                 tag = bytes.fromhex(value[32:64])
                 ciphertext = bytes.fromhex(value[64:])
-                cipher = AES.new(settings.MONERO_APP_SECRET_KEY.encode('utf-8'), AES.MODE_EAX, nonce=nonce)
+                cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
                 return cipher.decrypt_and_verify(ciphertext, tag).decode('utf-8')
             except Exception as e:
-                # Handle decryption errors gracefully
-                print(f"Decryption failed: {e}")
+                print(f"Échec de déchiffrement : {e}")
                 return None
         return value
 
@@ -32,7 +44,7 @@ class XmrWallet(models.Model):
     """
     Represents the main Monero wallet of the project.
     """
-    address = EncryptedField(max_length=95, unique=True)
+    address = EncryptedField(max_length=255, unique=True)
     balance = models.DecimalField(max_digits=20, decimal_places=8, default=Decimal('0.0'))
     wallet_type = models.CharField(max_length=10, choices=[('main', 'Main'), ('fee', 'Fee')], default='main')
     wallet_path = models.CharField(max_length=255, blank=True, null=True)  # Store wallet file path
@@ -44,7 +56,7 @@ class XmrSubaddress(models.Model):
     """
     Subaddresses derived from the main Monero wallet.
     """
-    address = EncryptedField(max_length=95, unique=True)
+    address = EncryptedField(max_length=255, unique=True)
     wallet_type = models.CharField(max_length=10, choices=[('user', 'User'), ('fee', 'Fee'), ('escrow', 'Escrow')])
     label = models.CharField(max_length=255, blank=True, null=True)  # Optional label for metadata (like transaction ID)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
@@ -56,7 +68,7 @@ class MoneroTransaction(models.Model):
     """
     Monero internal and external transaction management.
     """
-    tx_hash = EncryptedField(max_length=95, unique=True)
+    tx_hash = EncryptedField(max_length=255, unique=True)
     wallet = models.ForeignKey(XmrWallet, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=20, decimal_places=8)
     status = models.CharField(max_length=20, choices=[('pending', 'Pending'), ('confirmed', 'Confirmed'), ('failed', 'Failed')])

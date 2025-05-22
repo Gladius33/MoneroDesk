@@ -7,13 +7,12 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 
-monero_service = MoneroService()
-
 @login_required
 def create_user_subaddress_view(request):
     """
     Vue pour créer une sous-adresse pour un utilisateur.
     """
+    monero_service = MoneroService()
     label = f"User {request.user.username}"
     subaddress = monero_service.create_user_subaddress(label=label)
     
@@ -33,6 +32,7 @@ def create_fee_subaddress_view(request):
     """
     Vue pour créer une sous-adresse dédiée aux frais.
     """
+    monero_service = MoneroService()
     label = 'Fee Wallet'
     subaddress = monero_service.create_fee_subaddress(label=label)
     
@@ -51,6 +51,7 @@ def create_escrow_subaddress_view(request):
     """
     Vue pour créer une sous-adresse dédiée au séquestre.
     """
+    monero_service = MoneroService()
     label = 'Escrow Wallet'
     subaddress = monero_service.create_escrow_subaddress(label=label)
     
@@ -69,6 +70,7 @@ def subaddress_balance_view(request, subaddress_index):
     """
     Vue pour obtenir le solde et les transactions d'une sous-adresse.
     """
+    monero_service = MoneroService()
     balance_data = monero_service.get_subaddress_balance_and_transactions(subaddress_index=subaddress_index)
     
     if balance_data:
@@ -86,6 +88,7 @@ def send_xmr_view(request):
     """
     Vue pour envoyer des XMR à une adresse donnée.
     """
+    monero_service = MoneroService()
     if request.method == 'POST':
         to_address = request.POST.get('to_address')
         amount = Decimal(request.POST.get('amount'))
@@ -106,6 +109,7 @@ def fetch_rates_view(request):
     """
     Vue pour récupérer et mettre à jour les taux de change du Monero en différentes devises.
     """
+    monero_service = MoneroService()
     try:
         monero_service.fetch_rates()
         rates = MoneroRate.objects.all()
@@ -113,4 +117,3 @@ def fetch_rates_view(request):
         return JsonResponse({'status': 'success', 'rates': rates_data})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
-

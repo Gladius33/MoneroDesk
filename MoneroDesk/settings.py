@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from decouple import config, Csv
 import sys
+from celery.schedules import crontab
 
 
 # Définir BASE_DIR pour l'ensemble du projet
@@ -9,8 +10,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Chargement des configurations sensibles depuis le fichier .env
 SECRET_KEY = config('SECRET_KEY')
+ENCRYPTION_KEY = config('ENCRYPTION_KEY')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '54.36.175.127', 'monerodesk.org', 'www.monerodesk.org', 'hest.monerodesk.org', 'www.hest.monerodesk.org', 'webmail.monerodesk.org']
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,54.36.175.127', cast=Csv())
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -66,17 +68,25 @@ SECURE_PERMISSIONS_POLICY = {
 # Configuration Celery
 CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Utilise Redis comme broker
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # Utilise Redis comme backend de résultats
+broker_connection_retry_on_startup = True
 CELERY_ACCEPT_CONTENT = ['json']  # Format de contenu accepté
 CELERY_TASK_SERIALIZER = 'json'  # Sérialisation des tâches au format JSON
 CELERY_RESULT_SERIALIZER = 'json'  # Sérialisation des résultats au format JSON
 CELERY_TIMEZONE = 'UTC'  # Fuseau horaire
 CELERY_BEAT_SCHEDULE = {
-    'fetch-monero-rates-every-minute': {
-        'task': 'monero_app.tasks.fetch_monero_rates',  # The task to fetch Monero rates
-        'schedule': 60.0,  # Schedule the task to run every 60 seconds (1 minute)
+    'fetch-monero-rates-every-5-minutes': {
+        'task': 'monero_app.tasks.fetch_monero_rates',
+        'schedule': 300.0,  # 5 minutes
+    },
+    'monitor-monero-transactions-every-30-seconds': {
+        'task': 'monero_app.tasks.monitor_transactions',
+        'schedule': 30.0,   # 30 seconds
+    },
+    'check-or-create-main-wallet-every-minute': {
+        'task': 'monero_app.tasks.check_or_create_main_wallet',
+        'schedule': 60.0,   # 1 minute
     },
 }
-
 
 # Applications installées
 INSTALLED_APPS = [
@@ -93,7 +103,7 @@ INSTALLED_APPS = [
     'dashboard',
     'channels',
     'support',
-    'monero_app.apps.MoneroAppConfig',
+    'monero_app',
     'redis',
     'django_celery_beat',
 ]
@@ -133,12 +143,10 @@ ASGI_APPLICATION = 'MoneroDesk.asgi.application'  # Configuration pour ASGI
 
 # Configuration de Django Channels avec Redis
 CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],  # Adresse du serveur Redis
-        },
-    },
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [("localhost", 6379)]}
+    }
 }
 
 
@@ -181,9 +189,11 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Monero RPC Configuration
-XMR_RPC_HOST = '127.0.0.1'
-XMR_RPC_PORT = 28088 if DEBUG else 18081
-
+XMR_RPC_HOST = config('XMR_RPC_HOST')
+XMR_RPC_PORT = config('XMR_RPC_PORT')
+WALLET_PASS = config ('WALLET_PASS')
+X_CMC_PRO_API_KEY = config('X_CMC_PRO_API_KEY')
+MONERO_APP_SECRET_KEY = config('MONERO_APP_SECRET_KEY')
 # Configuration pour les tests
 if 'test' in sys.argv:
     ALLOWED_HOSTS = ['testserver']
@@ -198,14 +208,14 @@ LOGGING = {
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'debug.log'),
             'maxBytes': 1024 * 1024 * 5,  # 5 MB
-            'backupCount': 3,
+            'backupCount': 5,
         },
         'error_file': {
             'level': 'ERROR',
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'errors.log'),
             'maxBytes': 1024 * 1024 * 5,  # 5 MB
-            'backupCount': 3,
+            'backupCount': 5,
         },
     },
     'loggers': {

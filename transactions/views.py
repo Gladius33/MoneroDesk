@@ -16,6 +16,7 @@ def transaction_detail_view(request, transaction_id):
     transaction = get_object_or_404(Transaction, id=transaction_id)
     profile = request.user.profile
     chosen_fiat = profile.selected_fiat_currency
+    def some_view(request):
     monero_service = MoneroService()
 
     # Fetch XMR to fiat rate and calculate price

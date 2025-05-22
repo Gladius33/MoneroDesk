@@ -3,20 +3,13 @@ from django.contrib.auth.decorators import login_required
 from .models import Ad
 from .forms import AdForm
 from django.contrib import messages
-from decimal import Decimal
-from transactions.models import Transaction
-from monero_app.models import MoneroRate
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from .models import Ad
-from .forms import AdForm
-from django.contrib import messages
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from transactions.models import Transaction
 from monero_app.models import MoneroRate
 from django.db.models import Q
 
+def home_view(request):
+    return ad_list_view(request)
 
 @login_required
 def ad_list_view(request):
@@ -34,7 +27,7 @@ def ad_list_view(request):
     min_price = request.GET.get('min_price', None)
     max_price = request.GET.get('max_price', None)
     user = request.GET.get('user', '')
-    
+
     # Apply filters based on the user input
     if query:
         ads = ads.filter(Q(title__icontains=query) | Q(description__icontains=query))
@@ -74,7 +67,7 @@ def ad_create_view(request):
                 adjustment = monero_rate.rate * (ad.dynamic_price_value / 100)
                 ad.price = monero_rate.rate + adjustment  # Update the ad price
                 messages.info(request, "The price has been dynamically set according to the market rate.")
-            
+
             ad.save()
 
             if ad.type == 'sell':
@@ -86,6 +79,18 @@ def ad_create_view(request):
         form = AdForm()
     return render(request, 'ads/ad_form.html', {'form': form})
 
+def normalize_amount(amount_str):
+    """Formate à 8 décimales, accepte virgule ou point, complète avec des zéros."""
+    if not amount_str:
+        return None
+    amount_str = amount_str.replace(',', '.').strip()
+    if '.' in amount_str:
+        integer, decimals = amount_str.split('.', 1)
+        decimals = (decimals + '0'*8)[:8]
+    else:
+        integer = amount_str
+        decimals = '0'*8
+    return f"{integer}.{decimals}"
 
 @login_required
 def ad_detail_view(request, ad_id):
@@ -96,13 +101,17 @@ def ad_detail_view(request, ad_id):
     ad = get_object_or_404(Ad, id=ad_id)
 
     if request.method == 'POST':
-        # Handle transaction creation
+        user_input = request.POST.get('amount')
+        if not user_input:
+            messages.error(request, "Vous devez indiquer un montant.")
+            return redirect('ad_detail', ad_id=ad.id)
         try:
-            transaction_amount = Decimal(request.POST.get('transaction_amount'))
+            formatted_amount = normalize_amount(user_input)
+            transaction_amount = Decimal(formatted_amount)
+
             if transaction_amount < ad.min_amount or transaction_amount > ad.max_amount:
                 raise ValueError("The amount does not meet the ad's limits.")
 
-            # Check if dynamic price is enabled, and update the price dynamically if necessary
             if ad.dynamic_price:
                 monero_rate = MoneroRate.objects.get(currency=ad.fiat_currency)
                 adjustment = monero_rate.rate * (ad.dynamic_price_value / 100)
@@ -110,7 +119,6 @@ def ad_detail_view(request, ad_id):
                 ad.save()
 
             if ad.type == 'sell':
-                # The user is buying XMR
                 Transaction.objects.create_sell_transaction(
                     buyer=request.user,
                     ad=ad,
@@ -118,22 +126,19 @@ def ad_detail_view(request, ad_id):
                 )
                 messages.success(request, "Your purchase transaction has been created.")
             elif ad.type == 'buy':
-                # The user is selling XMR
                 Transaction.objects.create_buy_transaction(
                     seller=request.user,
                     ad=ad,
                     transaction_amount=transaction_amount
                 )
                 messages.success(request, "Your sale transaction has been created.")
-                
-            return redirect('ad_list')
 
-        except ValueError as e:
-            messages.error(request, str(e))
+            return redirect('ad_list')
+        except (InvalidOperation, ValueError) as e:
+            messages.error(request, f"Erreur : {str(e)}")
             return redirect('ad_detail', ad_id=ad.id)
 
     return render(request, 'ads/ad_detail.html', {'ad': ad})
-
 
 @login_required
 def ad_delete_view(request, ad_id):
@@ -157,3 +162,4 @@ def ad_delete_view(request, ad_id):
     ad.delete()
     messages.success(request, "The ad has been deleted and funds have been released.")
     return redirect('ad_list')
+

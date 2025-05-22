@@ -9,6 +9,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'MoneroDesk.settings')
 # Initialisation de Celery
 app = Celery('MoneroDesk')
 
+broker_connection_retry_on_startup = True
+
 # Charger les configurations de settings.py
 app.config_from_object('django.conf:settings', namespace='CELERY')
 

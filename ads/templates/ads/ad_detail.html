@@ -39,4 +39,25 @@
         <button type="submit">Delete Ad</button>
     </form>
 {% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const amountInput = document.getElementById('amount');
+    if (amountInput) {
+        amountInput.addEventListener('blur', function() {
+            let val = amountInput.value.replace(',', '.').trim();
+            if (val) {
+                if (val.indexOf('.') !== -1) {
+                    let [intPart, decPart] = val.split('.', 2);
+                    decPart = (decPart || '').padEnd(8, '0').slice(0,8);
+                    amountInput.value = intPart + '.' + decPart;
+                } else {
+                    amountInput.value = val + '.00000000';
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
+

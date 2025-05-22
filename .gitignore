@@ -3,3 +3,12 @@ prodenv/
 __pycache__/
 *.pyc
 *.sqlite3
+*.log
+*.keys
+monerodesk
+XMR_WALLET/
+wallet-cli.log
+wallet-rpc.log
+monero-wallet-cli.log
+monero-wallet-rpc.log
+logs/
